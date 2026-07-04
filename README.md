@@ -9,8 +9,8 @@
   <a href="https://pypi.org/project/sightrag/"><img src="https://img.shields.io/pypi/v/sightrag" alt="PyPI"></a>
   <a href="https://github.com/VK-Ant/sightrag/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.9+-green" alt="Python"></a>
+  
 </p>
-
 <p align="center">
   Search your images and videos with plain English. Three lines of code.
 </p>
@@ -337,12 +337,12 @@ SightRAG is part of the VK-Ant AI ecosystem:
 
 ## License
 
-Apache 2.0 — [LICENSE](LICENSE)
+Apache 2.0 
 
 ## Author
 
-Built by **Venkatkumar Rajan** — Kaggle Master, 8.5+ years computer vision experience.
+Built by **Venkatkumar Rajan** 
 
-- GitHub: [VK-Ant](https://github.com/VK-Ant)
-- LinkedIn: [VK](https://linkedin.com/in/vk-ant)
-- Portfolio: [vk-ant.github.io](https://vk-ant.github.io/Venkatkumar)
+- GitHub: https://github.com/VK-Ant
+- LinkedIn: https://linkedin.com/in/vk-ant
+- Portfolio: https://vk-ant.github.io/Venkatkumar
