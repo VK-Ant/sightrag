@@ -9,8 +9,8 @@
   <a href="https://pypi.org/project/sightrag/"><img src="https://img.shields.io/pypi/v/sightrag" alt="PyPI"></a>
   <a href="https://github.com/VK-Ant/sightrag/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.9+-green" alt="Python"></a>
-  
 </p>
+
 <p align="center">
   Search your images and videos with plain English. Three lines of code.
 </p>
