@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# SightRAG index
+sightrag_index/
+*.db
+
+# Models (auto-downloaded)
+*.pt
+*.pth
+*.onnx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+venv/
+.venv/
+
+# Docker
+.dockerignore
+
+# Data (user's files)
+data/

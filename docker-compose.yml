@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  sightrag:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./sightrag_index:/app/sightrag_index
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SIGHTRAG_STORE=chroma
+      - SIGHTRAG_INDEX=/app/sightrag_index
