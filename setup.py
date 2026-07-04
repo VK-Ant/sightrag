@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="sightrag",
-    version="0.1.0",
-    author="Ant (VK-Ant)",
-    author_email="",
-    description="SightRAG — Image and Video RAG. See. Search. Retrieve.",
+    version="0.1.3",
+    author="Venkatkumar Rajan (VK-Ant)",
+    author_email="venkatkumarr.vk99@gmail.com",
+    description="SightRAG: Image and Video RAG. See. Search. Retrieve.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VK-Ant/sightrag",
