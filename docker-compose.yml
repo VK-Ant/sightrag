@@ -10,5 +10,5 @@ services:
       - ./sightrag_index:/app/sightrag_index
     environment:
       - PYTHONUNBUFFERED=1
-      - SIGHTRAG_STORE=chroma
+      - SIGHTRAG_STORE=sqlite
       - SIGHTRAG_INDEX=/app/sightrag_index

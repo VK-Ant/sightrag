@@ -33,7 +33,7 @@ rag = None
 def get_rag():
     global rag
     if rag is None:
-        store = os.getenv("SIGHTRAG_STORE", "chroma")
+        store = os.getenv("SIGHTRAG_STORE", "sqlite")
         domain = os.getenv("SIGHTRAG_DOMAIN", None)
         index_path = os.getenv("SIGHTRAG_INDEX", "./sightrag_index")
         rag = SightRAG(store=store, domain_hint=domain, index_path=index_path)

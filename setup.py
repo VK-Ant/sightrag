@@ -26,11 +26,11 @@ setup(
         "opencv-python>=4.8.0",
         "Pillow>=9.0.0",
         "numpy>=1.24.0",
-        "chromadb>=0.4.0",
     ],
     extras_require={
+        "chroma": ["chromadb>=0.4.0"],
         "api": ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
-        "all": ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
+        "all": ["chromadb>=0.4.0", "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
     },
     entry_points={
         "console_scripts": [
@@ -43,10 +43,6 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Scientific/Engineering :: Image Recognition",
     ],

@@ -30,12 +30,12 @@ dependencies = [
     "opencv-python>=4.8.0",
     "Pillow>=9.0.0",
     "numpy>=1.24.0",
-    "chromadb>=0.4.0",
 ]
 
 [project.optional-dependencies]
+chroma = ["chromadb>=0.4.0"]
 api = ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"]
-all = ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"]
+all = ["chromadb>=0.4.0", "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"]
 
 [project.urls]
 Homepage = "https://github.com/VK-Ant/sightrag"

@@ -1,80 +1,81 @@
 # sightrag/detector.py
-# YOLO-based object detector
-# Falls back to whole-image if no detections
+# YOLO detection — models stored in ~/.sightrag/models/
 
+import os
 import numpy as np
 from PIL import Image
+from pathlib import Path
+
+
+MODEL_DIR = os.path.join(Path.home(), ".sightrag", "models")
 
 
 class Detector:
-    """
-    Tier 1 detection — YOLO on standard domains.
-    Falls back gracefully if no detections found.
-    """
+    """YOLO object detector with whole-image fallback."""
 
-    def __init__(self, model_size: str = "yolo11n.pt"):
+    def __init__(self, model_size: str = "yolo11n.pt", model_dir: str = None):
         self.model = None
         self.model_size = model_size
+        self.model_dir = model_dir or MODEL_DIR
+        os.makedirs(self.model_dir, exist_ok=True)
         self._load()
 
     def _load(self):
         try:
             from ultralytics import YOLO
-            self.model = YOLO(self.model_size)
+            import logging
+            logging.getLogger("ultralytics").setLevel(logging.WARNING)
+
+            model_path = os.path.join(self.model_dir, self.model_size)
+
+            if os.path.exists(model_path):
+                self.model = YOLO(model_path)
+            else:
+                # Download and move to our folder
+                self.model = YOLO(self.model_size)
+                # Move .pt file from current dir to model_dir
+                cwd_model = os.path.join(os.getcwd(), self.model_size)
+                if os.path.exists(cwd_model) and cwd_model != model_path:
+                    import shutil
+                    shutil.move(cwd_model, model_path)
+
         except Exception as e:
-            print(f"[SightRAG] YOLO load failed: {e}")
-            print("[SightRAG] Falling back to whole-image mode.")
+            print(f"[SightRAG] YOLO not available: {str(e)[:100]}")
             self.model = None
 
     def detect(self, image: Image.Image, confidence: float = 0.25):
-        """
-        Returns list of detected regions.
-        Each region: {"crop": PIL.Image, "bbox": [x1,y1,x2,y2],
-                      "label": str, "confidence": float}
-        Falls back to whole image if no detections.
-        """
-        if self.model is None:
-            return self._whole_image_fallback(image)
+        """Detect objects. Always returns at least whole image."""
+        regions = []
 
-        try:
-            results = self.model(image, conf=confidence, verbose=False)
-            regions = []
+        if self.model is not None:
+            try:
+                results = self.model(image, conf=confidence, verbose=False)
+                for result in results:
+                    if result.boxes is None or len(result.boxes) == 0:
+                        continue
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                        w, h = image.size
+                        x1, y1 = max(0, x1), max(0, y1)
+                        x2, y2 = min(w, x2), min(h, y2)
+                        if (x2 - x1) < 10 or (y2 - y1) < 10:
+                            continue
+                        regions.append({
+                            "crop":       image.crop((x1, y1, x2, y2)),
+                            "bbox":       [x1, y1, x2, y2],
+                            "label":      result.names[int(box.cls[0])],
+                            "confidence": float(box.conf[0])
+                        })
+            except:
+                pass
 
-            for result in results:
-                boxes = result.boxes
-                if boxes is None or len(boxes) == 0:
-                    continue
-
-                for box in boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                    conf = float(box.conf[0])
-                    cls = int(box.cls[0])
-                    label = result.names[cls]
-
-                    # Crop region
-                    crop = image.crop((x1, y1, x2, y2))
-                    regions.append({
-                        "crop":       crop,
-                        "bbox":       [x1, y1, x2, y2],
-                        "label":      label,
-                        "confidence": conf
-                    })
-
-            if not regions:
-                return self._whole_image_fallback(image)
-
-            return regions
-
-        except Exception as e:
-            print(f"[SightRAG] Detection error: {e}")
-            return self._whole_image_fallback(image)
-
-    def _whole_image_fallback(self, image: Image.Image):
-        """When YOLO finds nothing — use whole image."""
+        # Always add whole image
         w, h = image.size
-        return [{
+        regions.append({
             "crop":       image,
             "bbox":       [0, 0, w, h],
             "label":      "whole_image",
             "confidence": 1.0
-        }]
+        })
+
+        return regions

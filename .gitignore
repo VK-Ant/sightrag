@@ -6,14 +6,20 @@ dist/
 build/
 *.egg
 
-# SightRAG index
+# SightRAG internal storage (stored in ~/.sightrag/)
 sightrag_index/
 *.db
 
-# Models (auto-downloaded)
+# YOLO models (auto-downloaded to ~/.sightrag/models/)
 *.pt
 *.pth
 *.onnx
+
+# Camera captures (generated at runtime)
+demo_sightrag/camera_captures/*.jpg
+
+# Generated sample video
+demo_sightrag/video_samples/sample_video.mp4
 
 # IDE
 .vscode/
@@ -31,6 +37,3 @@ venv/
 
 # Docker
 .dockerignore
-
-# Data (user's files)
-data/

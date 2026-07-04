@@ -1,121 +1,147 @@
 # sightrag/indexer.py
-# Handles image folder, video, and camera indexing
+# Image, video, camera indexing — clean output only
 
-import uuid
+import os
+import numpy as np
 from pathlib import Path
 from .detector import Detector
 from .embedder import Embedder
-from .utils.image import load_image, get_image_paths
-from .utils.video import extract_frames
+from .utils.image import load_image, SUPPORTED_FORMATS as IMAGE_FORMATS
+from .utils.video import extract_frames, SUPPORTED_FORMATS as VIDEO_FORMATS
 
 
 class Indexer:
-    """
-    Indexes images and video into the vector store.
-    """
+    """Indexes images, videos, and camera frames."""
 
-    def __init__(self, detector: Detector,
-                 embedder: Embedder,
-                 store,
-                 domain_hint: str = None):
+    def __init__(self, detector, embedder, store, domain_hint=None):
         self.detector = detector
         self.embedder = embedder
         self.store = store
         self.domain_hint = domain_hint
 
-    def index_folder(self, folder_path: str):
-        """Index all images in a folder."""
-        paths = get_image_paths(folder_path)
-        total = len(paths)
-        print(f"[SightRAG] Indexing {total} images...")
+    def _index_image(self, path_str, image, prefix):
+        """Index one image — detect regions, embed, store."""
+        regions = self.detector.detect(image)
+        count = 0
+        for j, region in enumerate(regions):
+            embedding = self.embedder.embed_image(region["crop"])
+            if not np.allclose(embedding, 0):
+                self.store.add(f"{prefix}_{j}", embedding, {
+                    "image_path":  path_str,
+                    "bbox":        region["bbox"],
+                    "label":       region["label"],
+                    "confidence":  region["confidence"],
+                    "source_type": "image"
+                })
+                count += 1
+        return count
 
-        for i, path in enumerate(paths, 1):
-            try:
-                image = load_image(str(path))
-                regions = self.detector.detect(image)
+    def index_folder(self, folder_path: str, fps: int = 1):
+        """Index all images AND videos in a folder."""
+        folder = Path(folder_path)
+        if not folder.exists():
+            raise FileNotFoundError(f"Folder not found: {folder}")
+        if not folder.is_dir():
+            raise ValueError(f"Not a folder: {folder}")
 
-                for j, region in enumerate(regions):
-                    embedding = self.embedder.embed_image(region["crop"])
-                    id = f"{path.stem}_{j}"
-                    self.store.add(id, embedding, {
-                        "image_path":  str(path),
-                        "bbox":        region["bbox"],
-                        "label":       region["label"],
-                        "confidence":  region["confidence"],
-                        "source_type": "image"
-                    })
+        # Find images
+        image_paths = []
+        for fmt in IMAGE_FORMATS:
+            image_paths.extend(folder.glob(f"*{fmt}"))
+            image_paths.extend(folder.glob(f"*{fmt.upper()}"))
+        image_paths = sorted(set(image_paths))
 
-                # Progress
-                pct = int((i / total) * 40)
-                bar = "█" * pct + "░" * (40 - pct)
-                print(f"\r  [{bar}] {i}/{total} images", end="")
+        # Find videos
+        video_paths = []
+        for fmt in VIDEO_FORMATS:
+            video_paths.extend(folder.glob(f"*{fmt}"))
+            video_paths.extend(folder.glob(f"*{fmt.upper()}"))
+        video_paths = sorted(set(video_paths))
 
-            except Exception as e:
-                print(f"\n[SightRAG] Skipping {path.name}: {e}")
+        if not image_paths and not video_paths:
+            raise ValueError(f"No images or videos in {folder}")
 
-        print(f"\n[SightRAG] Done. {self.store.count()} regions indexed.")
+        print(f"[SightRAG] Found {len(image_paths)} images, {len(video_paths)} videos")
+
+        # Index images
+        if image_paths:
+            total = len(image_paths)
+            for i, path in enumerate(image_paths, 1):
+                try:
+                    image = load_image(str(path))
+                    self._index_image(str(path), image, path.stem)
+                    pct = int((i / total) * 40)
+                    bar = "█" * pct + "░" * (40 - pct)
+                    print(f"\r  [{bar}] {i}/{total} images", end="", flush=True)
+                except Exception as e:
+                    print(f"\n  Skipping {path.name}: {e}")
+            print()
+
+        # Index videos
+        if video_paths:
+            for v_idx, vpath in enumerate(video_paths, 1):
+                try:
+                    print(f"[SightRAG] Video {v_idx}/{len(video_paths)}: {vpath.name}")
+                    self._index_video(str(vpath), fps)
+                except Exception as e:
+                    print(f"  Skipping {vpath.name}: {e}")
+
+        print(f"[SightRAG] Done. {self.store.count()} regions indexed.")
 
     def index_video(self, video_path: str, fps: int = 1):
-        """Index video by extracting keyframes."""
-        print(f"[SightRAG] Extracting frames at {fps} FPS...")
+        """Index a single video file."""
+        self._index_video(video_path, fps)
+        print(f"[SightRAG] Done. {self.store.count()} regions indexed.")
+
+    def _index_video(self, video_path: str, fps: int = 1):
+        """Internal video indexing."""
+        video_name = Path(video_path).stem
         frames = extract_frames(video_path, fps=fps)
         total = len(frames)
-        print(f"[SightRAG] Indexing {total} frames...")
+        print(f"  {total} frames extracted...")
 
         for i, (image, timestamp) in enumerate(frames, 1):
             try:
                 regions = self.detector.detect(image)
-
                 for j, region in enumerate(regions):
                     embedding = self.embedder.embed_image(region["crop"])
-                    id = f"frame_{i}_{j}"
-                    self.store.add(id, embedding, {
-                        "image_path":  video_path,
-                        "bbox":        region["bbox"],
-                        "label":       region["label"],
-                        "confidence":  region["confidence"],
-                        "timestamp":   timestamp,
-                        "source_type": "video"
-                    })
-
+                    if not np.allclose(embedding, 0):
+                        self.store.add(f"{video_name}_f{i}_r{j}", embedding, {
+                            "image_path":  video_path,
+                            "bbox":        region["bbox"],
+                            "label":       region["label"],
+                            "confidence":  region["confidence"],
+                            "timestamp":   timestamp,
+                            "source_type": "video"
+                        })
                 pct = int((i / total) * 40)
                 bar = "█" * pct + "░" * (40 - pct)
-                print(f"\r  [{bar}] {i}/{total} frames", end="")
+                print(f"\r  [{bar}] {i}/{total} frames", end="", flush=True)
+            except:
+                pass
+        print()
 
-            except Exception as e:
-                print(f"\n[SightRAG] Skipping frame {i}: {e}")
-
-        print(f"\n[SightRAG] Done. {self.store.count()} regions indexed.")
-
-    def index_camera(self, camera_id: int = 0,
-                     fps: int = 1,
-                     buffer_seconds: int = 60):
-        """Index live camera frames into buffer."""
+    def index_camera(self, camera_id=0, fps=1, buffer_seconds=60):
+        """Index live camera frames."""
         from .utils.camera import capture_frames
-        print(f"[SightRAG] Indexing camera {camera_id}...")
-        print(f"[SightRAG] Press Ctrl+C to stop.")
+        print(f"[SightRAG] Camera {camera_id}. Press Ctrl+C to stop.")
 
         count = 0
         try:
-            for image, timestamp in capture_frames(
-                camera_id, fps, buffer_seconds
-            ):
+            for image, timestamp in capture_frames(camera_id, fps, buffer_seconds):
                 regions = self.detector.detect(image)
                 for j, region in enumerate(regions):
                     embedding = self.embedder.embed_image(region["crop"])
-                    id = f"cam_{camera_id}_{timestamp}_{j}"
-                    self.store.add(id, embedding, {
-                        "image_path":  f"camera_{camera_id}",
-                        "bbox":        region["bbox"],
-                        "label":       region["label"],
-                        "confidence":  region["confidence"],
-                        "timestamp":   timestamp,
-                        "source_type": "camera"
-                    })
+                    if not np.allclose(embedding, 0):
+                        self.store.add(f"cam{camera_id}_{timestamp}_{j}", embedding, {
+                            "image_path":  f"camera_{camera_id}",
+                            "bbox":        region["bbox"],
+                            "label":       region["label"],
+                            "confidence":  region["confidence"],
+                            "timestamp":   timestamp,
+                            "source_type": "camera"
+                        })
                 count += 1
-                print(f"\r[SightRAG] {count} frames indexed | "
-                      f"Last: {timestamp}", end="")
-
+                print(f"\r[SightRAG] {count} frames | {timestamp}", end="", flush=True)
         except KeyboardInterrupt:
-            print(f"\n[SightRAG] Camera stopped. "
-                  f"{self.store.count()} regions indexed.")
+            print(f"\n[SightRAG] Stopped. {self.store.count()} regions indexed.")
