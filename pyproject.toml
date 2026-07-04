@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sightrag"
-version = "0.1.3"
+version = "0.1.4"
 description = "SightRAG: Image and Video RAG. See. Search. Retrieve."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
-authors = [{name = "Venkatkumar Rajan (VK-Ant)"}]
+authors = [{name = "Venkatkumar Rajan"}]
 keywords = ["computer-vision", "rag", "image-search", "video-search", "retrieval", "clip", "yolo"]
 
 classifiers = [

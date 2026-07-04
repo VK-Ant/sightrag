@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="sightrag",
-    version="0.1.3",
-    author="Venkatkumar Rajan (VK-Ant)",
+    version="0.1.4",
+    author="Venkatkumar Rajan",
     author_email="venkatkumarr.vk99@gmail.com",
     description="SightRAG: Image and Video RAG. See. Search. Retrieve.",
     long_description=long_description,
