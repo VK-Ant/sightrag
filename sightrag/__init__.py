@@ -2,30 +2,39 @@
 SightRAG — Image and Video RAG
 See. Search. Retrieve.
 
-pip install sightrag
-
 Usage:
     from sightrag import SightRAG
-
+    
     rag = SightRAG()
     rag.index("./photos/")
-    results = rag.query("find empty shelf")
+    results = rag.query("find person")
+    rag.show(results)
 
-REST API:
-    from sightrag import serve
-    serve(port=8000)
+Custom models:
+    from sightrag import SightRAG
+    from sightrag.detectors.base import DetectorBase
+    from sightrag.embedders.base import EmbedderBase
+    
+    rag = SightRAG(detector=MyDetector(), embedder=MyEmbedder())
+
+Author: Ant (VK-Ant)
+License: Apache 2.0
+GitHub: https://github.com/VK-Ant/sightrag
 """
 
 from .core import SightRAG
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Ant (VK-Ant)"
+__license__ = "Apache-2.0"
 
+# Public API
+from .detectors.base import DetectorBase
+from .embedders.base import EmbedderBase
+from .store.base import VectorStoreBase
 
-def serve(host: str = "0.0.0.0", port: int = 8000):
-    """Start SightRAG REST API server."""
-    from .api import serve as _serve
-    _serve(host=host, port=port)
-
-
-__all__ = ["SightRAG", "serve"]
+def serve(host="0.0.0.0", port=8000):
+    """Start REST API server."""
+    from .api import app
+    import uvicorn
+    uvicorn.run(app, host=host, port=port)
