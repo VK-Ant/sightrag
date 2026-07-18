@@ -1,5 +1,5 @@
 """
-SightRAG v0.2 Demo — REST API
+SightRAG v0.3 Demo — REST API
 Step 1: python -m sightrag.api
 Step 2: python demo_sightrag/sightrag_restapi.py
 """
@@ -11,14 +11,14 @@ except ImportError:
     sys.exit(1)
 
 print("=" * 55)
-print("  SightRAG v0.2 Demo — REST API")
+print("  SightRAG v0.3 Demo — REST API")
 print("  See. Search. Retrieve.")
 print("=" * 55)
 
 BASE = "http://localhost:8000"
 try:
     r = requests.get(f"{BASE}/", timeout=3)
-    print(f"  Server running: {r.json()}")
+    print(f"  Server running")
 except requests.ConnectionError:
     print("  Start server first: python -m sightrag.api")
     sys.exit(1)

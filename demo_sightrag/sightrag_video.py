@@ -1,14 +1,13 @@
 """
-SightRAG v0.2 Demo — Video Indexing
+SightRAG v0.3 Demo — Video Indexing
 Run: python demo_sightrag/sightrag_video.py
-Put your videos in demo_sightrag/video_samples/ first.
 """
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from sightrag import SightRAG
 
 print("=" * 55)
-print("  SightRAG v0.2 Demo — Video")
+print("  SightRAG v0.3 Demo — Video")
 print("  See. Search. Retrieve.")
 print("=" * 55)
 
@@ -42,9 +41,9 @@ for q in ["find person", "find shelf", "find car"]:
     print(f'\n  "{q}"')
     for i, r in enumerate(results, 1):
         ts = r.get('timestamp', '')
-        print(f"   {i}. timestamp: {ts} — score: {r['score']:.4f} | {r['label']}")
+        print(f"   {i}. score: {r['score']:.4f} | {r['label']} | t={ts}")
 
-# Visualize
+# v0.3: Visualize
 output_dir = os.path.join(os.path.dirname(__file__), "..", "output")
 rag.show(rag.query("find person", top_k=3), save=output_dir)
 

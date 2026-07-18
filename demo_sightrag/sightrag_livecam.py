@@ -1,13 +1,12 @@
 """
-SightRAG v0.2 Demo — Live Camera
+SightRAG v0.3 Demo — Live Camera
 Run: python demo_sightrag/sightrag_livecam.py
-Requires webcam.
 """
 import os, sys, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 print("=" * 55)
-print("  SightRAG v0.2 Demo — Live Camera")
+print("  SightRAG v0.3 Demo — Live Camera")
 print("  See. Search. Retrieve.")
 print("=" * 55)
 
@@ -50,6 +49,7 @@ for q in ["find person", "find object"]:
     for i, r in enumerate(results, 1):
         print(f"   {i}. {os.path.basename(r['image_path'])} — score: {r['score']:.4f}")
 
+# v0.3: Visualize
 output_dir = os.path.join(os.path.dirname(__file__), "..", "output")
 rag.show(rag.query("find person", top_k=3), save=output_dir)
 

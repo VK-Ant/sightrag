@@ -21,7 +21,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="sightrag",
-    version="0.2.0",
+    version="0.3.0",
     author="Venkatkumar Rajan",
     description="SightRAG — Image and Video RAG. See. Search. Retrieve.",
     long_description=long_description,
@@ -45,12 +45,18 @@ setup(
         "tensorrt": ["tensorrt", "polygraphy"],
         "openvino": ["openvino>=2024.0.0"],
         "chroma": ["chromadb>=0.4.0"],
+        "qdrant": ["qdrant-client>=1.7.0"],
+        "grounding-dino": ["transformers>=4.30.0"],
+        "reid": ["torchreid"],
+        "cli": ["click>=8.0.0"],
         "api": ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
         "all": ["pybind11>=2.11.0", "onnxruntime>=1.16.0", "chromadb>=0.4.0",
+                "qdrant-client>=1.7.0", "click>=8.0.0",
                 "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
     },
     entry_points={
         "console_scripts": [
+            "sightrag=sightrag.cli:main",
             "sightrag-server=sightrag.api:serve",
         ],
     },

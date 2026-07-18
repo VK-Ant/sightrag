@@ -38,16 +38,26 @@ pip install sightrag
 
 For faster inference:
 ```bash
-pip install sightrag[onnx]     # 2x faster (any CPU)
+pip install sightrag[onnx]               # 2x faster (any CPU)
 ```
 
-## What's New in v0.2
+For v0.3 features:
+```bash
+pip install sightrag[grounding-dino]     # any domain detection
+pip install sightrag[reid]               # person tracking
+pip install sightrag[cli]                # terminal commands
+pip install sightrag[qdrant]             # large scale store
+pip install sightrag[all]                # everything
+```
 
-- **Auto backend selection** — SightRAG picks the fastest available: TensorRT > ONNX > OpenVINO > PyTorch. No configuration needed.
-- **Pluggable models** — bring your own detector, embedder, or vector store. SightRAG handles the pipeline.
-- **`rag.show()`** — visualize results with bounding boxes drawn on images.
-- **C++ core** — optional C++ data pipeline for faster image loading and video processing.
-- **Backward compatible** — v0.1 code works unchanged.
+## What's New in v0.3
+
+- **Grounding DINO** — detect ANY object by text description. No training, no COCO limitation. "find cracked solder joint" just works.
+- **Person Re-ID** — track same person across multiple cameras using body re-identification models.
+- **CLI tool** — `sightrag index`, `sightrag query`, `sightrag serve` from terminal. No Python needed.
+- **Qdrant store** — production-grade vector database for 1M+ images.
+- **Re-ranking** — cross-encoder re-ranks top results for better accuracy on large datasets.
+- **Backward compatible** — v0.1 and v0.2 code works unchanged.
 
 ## What SightRAG Is
 
@@ -169,6 +179,59 @@ rag.show(results)
 rag.show(results, save="./output/")
 ```
 
+## Grounding DINO — Any Domain (NEW in v0.3)
+
+Detect ANY object by text description. No training needed.
+
+```python
+rag = SightRAG(detector="grounding-dino")
+rag.index("./circuit_boards/")
+results = rag.query("find cracked solder joint")
+rag.show(results)
+```
+
+Works on any domain: medical, industrial, satellite, retail — just type what to find.
+
+## Person Re-ID — Cross-Camera Tracking (NEW in v0.3)
+
+Track same person across multiple cameras.
+
+```python
+rag = SightRAG(embedder="reid")
+rag.index("./camera_01/")
+rag.index("./camera_02/")
+results = rag.query(reference="./suspect.jpg")
+rag.show(results)
+```
+
+Returns every camera and timestamp where that person appeared.
+
+## CLI Tool (NEW in v0.3)
+
+```bash
+pip install sightrag[cli]
+
+sightrag index ./photos/
+sightrag index ./video.mp4 --fps 2
+sightrag query "find person near exit"
+sightrag query --reference ./suspect.jpg --top-k 10
+sightrag show --query "find person" --save ./output/
+sightrag status
+sightrag clear
+sightrag serve --port 8000
+```
+
+## Re-ranking — Better Accuracy (NEW in v0.3)
+
+Improves result quality on large similar datasets.
+
+```python
+rag = SightRAG(rerank=True)
+rag.index("./100k_shelf_images/")
+results = rag.query("find empty shelf", top_k=5)
+# Fetches top 100, re-ranks to best 5
+```
+
 ## Pluggable Models
 
 ### Custom Detector
@@ -276,8 +339,15 @@ sightrag-server
 | Store | Scale | Install |
 |-------|-------|---------|
 | SQLite (default) | up to 100k images | built-in |
-| ChromaDB | large scale | `pip install sightrag[chroma]` |
+| ChromaDB | medium scale | `pip install sightrag[chroma]` |
+| Qdrant (NEW) | 1M+ images | `pip install sightrag[qdrant]` |
 | Custom | any | implement `VectorStoreBase` |
+
+```python
+rag = SightRAG(store="sqlite")    # default, up to 100k
+rag = SightRAG(store="chroma")    # medium scale
+rag = SightRAG(store="qdrant")    # production, 1M+
+```
 
 ## Architecture
 
@@ -286,17 +356,27 @@ Input (images / video / camera)
         ↓
    C++ Core (fast load, resize, extract) — Python fallback
         ↓
-   Detection (YOLO default — or any custom model)
+   Detection:
+   ├── YOLO (default — 80 COCO classes, fast)
+   ├── Grounding DINO (any domain, no training) — NEW
+   └── Custom detector (user's own model)
         ↓
-   Embedding (CLIP default — or any custom model)
+   Embedding:
+   ├── CLIP (default — general vision-language)
+   ├── Person Re-ID / OSNet (cross-camera tracking) — NEW
+   └── Custom embedder (user's own model)
         ↓
    Auto Backend (TensorRT > ONNX > OpenVINO > PyTorch)
         ↓
-   Vector Store (SQLite default — or any custom store)
+   Vector Store:
+   ├── SQLite (default — up to 100k)
+   ├── ChromaDB (medium scale)
+   ├── Qdrant (1M+ production) — NEW
+   └── Custom store (user's own)
         ↓
-   Retrieval + Ranking (cosine similarity)
+   Retrieval + Re-ranking (cosine → cross-encoder) — NEW
         ↓
-   Visualization (rag.show — bounding boxes on images)
+   Visualization (rag.show — bounding boxes)
         ↓
 Output (matched images, scores, bboxes, timestamps)
 ```
@@ -313,7 +393,7 @@ API at `http://localhost:8000/docs`
 
 | Library | Purpose | Status |
 |---------|---------|--------|
-| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG — See. Search. Retrieve. | v0.2 |
+| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG — See. Search. Retrieve. | v0.3 |
 | [adaptive-intelligence](https://pypi.org/project/adaptive-intelligence/) | RL-based RAG orchestration | v4.0 |
 | [llmevalkit](https://pypi.org/project/llmevalkit/) | LLM evaluation (78+ metrics) | Stable |
 
@@ -322,8 +402,8 @@ API at `http://localhost:8000/docs`
 | Version | Focus |
 |---------|-------|
 | v0.1 | Core pipeline — image, video, camera, REST API |
-| v0.2 (current) | Speed — C++ core, auto backends, pluggable models, rag.show() |
-| v0.3 | Intelligence — Grounding DINO, Person Re-ID, CLI |
+| v0.2 | Speed — C++ core, auto backends, pluggable models, rag.show() |
+| v0.3 (current) | Intelligence — Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking |
 | v1.0 | Production — edge deployment, compliance, enterprise |
 
 ## License

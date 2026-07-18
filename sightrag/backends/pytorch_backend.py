@@ -52,6 +52,12 @@ class PyTorchBackend(BackendBase):
     
     def detect(self, image, confidence=0.25):
         regions = []
+        w, h = image.size
+        img_area = w * h
+        
+        # Minimum detection size: 3% of image area
+        # Filters out tiny objects like ties, watches, buttons
+        min_area = img_area * 0.03
         
         if self._yolo is not None:
             try:
@@ -61,11 +67,19 @@ class PyTorchBackend(BackendBase):
                         continue
                     for box in r.boxes:
                         x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                        w, h = image.size
                         x1, y1 = max(0, x1), max(0, y1)
                         x2, y2 = min(w, x2), min(h, y2)
-                        if (x2 - x1) < 10 or (y2 - y1) < 10:
+                        
+                        box_w = x2 - x1
+                        box_h = y2 - y1
+                        box_area = box_w * box_h
+                        
+                        # Skip tiny detections
+                        if box_w < 20 or box_h < 20:
                             continue
+                        if box_area < min_area:
+                            continue
+                        
                         regions.append({
                             "crop": image.crop((x1, y1, x2, y2)),
                             "bbox": [x1, y1, x2, y2],
@@ -75,13 +89,15 @@ class PyTorchBackend(BackendBase):
             except Exception:
                 pass
         
+        # Sort by area — larger detections first (person > tie)
+        regions.sort(key=lambda r: (r["bbox"][2]-r["bbox"][0]) * (r["bbox"][3]-r["bbox"][1]), reverse=True)
+        
         # Always add whole image
-        w, h = image.size
         regions.append({
             "crop": image,
             "bbox": [0, 0, w, h],
             "label": "whole_image",
-            "confidence": 1.0
+            "confidence": 0.1
         })
         return regions
     

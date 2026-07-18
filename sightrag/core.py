@@ -1,5 +1,5 @@
 """
-SightRAG v0.2 — See. Search. Retrieve.
+SightRAG v0.3 — See. Search. Retrieve.
 
 Usage:
     rag = SightRAG()
@@ -10,8 +10,17 @@ Usage:
 Custom models:
     rag = SightRAG(detector=MyDetector(), embedder=MyEmbedder())
 
-All data stored in ~/.sightrag/ — project folder stays clean.
-Backend auto-selected: TensorRT > ONNX > OpenVINO > PyTorch.
+Grounding DINO (any domain):
+    rag = SightRAG(detector="grounding-dino")
+    results = rag.query("find cracked solder joint")
+
+Person Re-ID:
+    rag = SightRAG(embedder="reid")
+    results = rag.query(reference="./suspect.jpg")
+
+Re-ranking:
+    rag = SightRAG(rerank=True)
+    results = rag.query("find person", top_k=5)
 """
 
 import os
@@ -31,41 +40,54 @@ class SightRAG:
                  embedder=None,
                  store="sqlite",
                  domain_hint=None,
-                 index_path=None):
+                 index_path=None,
+                 rerank=False):
         
         self.domain_hint = domain_hint
-        self._store_type = store
+        self._store_type = store if isinstance(store, str) else "custom"
         self._index_path = index_path or os.path.join(SIGHTRAG_HOME, "index")
+        self._rerank = rerank
+        self._reranker = None
         
         os.makedirs(SIGHTRAG_HOME, exist_ok=True)
         
         print("[SightRAG] Initializing...")
         
-        # Auto-select backend (fastest available)
+        # Backend
         self._backend = auto_select_backend()
         print(f"[SightRAG] Backend: {self._backend.name}")
         
-        # Detector: custom or backend default
-        if detector is not None:
-            if isinstance(detector, DetectorBase):
-                self._detector = detector
-                print(f"[SightRAG] Detector: custom ({type(detector).__name__})")
-            else:
-                raise TypeError("detector must be DetectorBase subclass")
-        else:
+        # Detector
+        if detector is None:
             self._detector = self._backend
             print("[SightRAG] Detector: default (YOLO)")
-        
-        # Embedder: custom or backend default
-        if embedder is not None:
-            if isinstance(embedder, EmbedderBase):
-                self._embedder = embedder
-                print(f"[SightRAG] Embedder: custom ({type(embedder).__name__})")
-            else:
-                raise TypeError("embedder must be EmbedderBase subclass")
+        elif isinstance(detector, str):
+            self._detector = self._load_detector(detector)
+            print(f"[SightRAG] Detector: {detector}")
+        elif isinstance(detector, DetectorBase):
+            self._detector = detector
+            print(f"[SightRAG] Detector: custom ({type(detector).__name__})")
         else:
+            raise TypeError("detector must be string or DetectorBase subclass")
+        
+        # Embedder
+        if embedder is None:
             self._embedder = self._backend
             print("[SightRAG] Embedder: default (CLIP)")
+        elif isinstance(embedder, str):
+            self._embedder = self._load_embedder(embedder)
+            print(f"[SightRAG] Embedder: {embedder}")
+        elif isinstance(embedder, EmbedderBase):
+            self._embedder = embedder
+            print(f"[SightRAG] Embedder: custom ({type(embedder).__name__})")
+        else:
+            raise TypeError("embedder must be string or EmbedderBase subclass")
+        
+        # Re-ranker
+        if rerank:
+            from .reranker import ReRanker
+            self._reranker = ReRanker()
+            print("[SightRAG] Re-ranker: enabled")
         
         # Store
         self._store = self._init_store(store, self._index_path)
@@ -78,6 +100,24 @@ class SightRAG:
         self._retriever = Retriever(self._embedder, self._detector, self._store, domain_hint)
         
         print("[SightRAG] Ready.")
+    
+    def _load_detector(self, name):
+        if name in ("grounding-dino", "grounding_dino", "gdino"):
+            from .detectors.grounding_dino import GroundingDINODetector
+            return GroundingDINODetector(text_prompt=self.domain_hint)
+        elif name in ("yolo", "yolo11"):
+            return self._backend
+        else:
+            raise ValueError(f"Unknown detector: {name}. Options: 'yolo', 'grounding-dino'")
+    
+    def _load_embedder(self, name):
+        if name in ("reid", "re-id", "person-reid"):
+            from .embedders.reid_embedder import ReIDEmbedder
+            return ReIDEmbedder()
+        elif name in ("clip", "clip-vit"):
+            return self._backend
+        else:
+            raise ValueError(f"Unknown embedder: {name}. Options: 'clip', 'reid'")
     
     def _init_store(self, store_type, path):
         if isinstance(store_type, str):
@@ -92,27 +132,21 @@ class SightRAG:
                     print("[SightRAG] ChromaDB not found. Using SQLite.")
                     from .store.sqlite_store import SQLiteStore
                     return SQLiteStore(path)
+            elif store_type == "qdrant":
+                from .store.qdrant_store import QdrantStore
+                return QdrantStore()
             else:
-                raise ValueError(f"Unknown store: {store_type}. Use 'sqlite' or 'chroma'.")
+                raise ValueError(f"Unknown store: {store_type}. Options: 'sqlite', 'chroma', 'qdrant'")
         else:
-            # Custom store object
             return store_type
     
     def index(self, path=None, source=None, camera_id=0, fps=1):
-        """
-        Index images, video, or camera.
-        
-        rag.index("./photos/")          # folder
-        rag.index("./video.mp4")        # video
-        rag.index(source="camera")      # webcam
-        """
+        """Index images, video, or camera."""
         if source == "camera":
             self._indexer.index_camera(camera_id=camera_id, fps=fps)
             return self
-        
         if path is None:
             raise ValueError("Provide a path or source='camera'")
-        
         if os.path.isdir(path):
             self._indexer.index_folder(path, fps=fps)
         elif os.path.isfile(path):
@@ -123,7 +157,6 @@ class SightRAG:
                 self._index_single_image(path)
         else:
             raise FileNotFoundError(f"Path not found: {path}")
-        
         return self
     
     def _index_single_image(self, path):
@@ -143,26 +176,28 @@ class SightRAG:
         print(f"[SightRAG] 1 image indexed. Total: {self.count()} regions.")
     
     def query(self, text=None, reference=None, top_k=5):
-        """
-        Search indexed content.
-        
-        results = rag.query("find person")
-        results = rag.query(reference="sample.jpg")
-        """
+        """Search indexed content."""
         if text is None and reference is None:
             raise ValueError("Provide text or reference image.")
+        
+        # If re-ranking, fetch more candidates first
+        fetch_k = top_k * 20 if self._reranker and text else top_k
+        
         if text:
-            return self._retriever.query_text(text, top_k)
+            results = self._retriever.query_text(text, fetch_k)
         else:
-            return self._retriever.query_reference(reference, top_k)
+            results = self._retriever.query_reference(reference, fetch_k)
+        
+        # Re-rank if enabled and text query
+        if self._reranker and text and len(results) > top_k:
+            results = self._reranker.rerank(text, results, top_k)
+        else:
+            results = results[:top_k]
+        
+        return results
     
     def show(self, results, save=None, max_show=5):
-        """
-        Visualize query results with bounding boxes.
-        
-        rag.show(results)                    # display on screen
-        rag.show(results, save="./output/")  # save annotated images
-        """
+        """Visualize results with bounding boxes."""
         from .visualizer import show_results
         show_results(results, save=save, max_show=max_show)
     

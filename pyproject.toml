@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sightrag"
-version = "0.2.0"
+version = "0.3.0"
 description = "SightRAG — Image and Video RAG. See. Search. Retrieve."
 readme = "README.md"
 license = {text = "Apache-2.0"}
