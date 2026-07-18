@@ -52,12 +52,12 @@ pip install sightrag[all]                # everything
 
 ## What's New in v0.3
 
-- **Grounding DINO** — detect ANY object by text description. No training, no COCO limitation. "find cracked solder joint" just works.
-- **Person Re-ID** — track same person across multiple cameras using body re-identification models.
-- **CLI tool** — `sightrag index`, `sightrag query`, `sightrag serve` from terminal. No Python needed.
-- **Qdrant store** — production-grade vector database for 1M+ images.
-- **Re-ranking** — cross-encoder re-ranks top results for better accuracy on large datasets.
-- **Backward compatible** — v0.1 and v0.2 code works unchanged.
+- **Grounding DINO** : detect ANY object by text description. No training, no COCO limitation. "find cracked solder joint" just works.
+- **Person Re-ID** : track same person across multiple cameras using body re-identification models.
+- **CLI tool** : `sightrag index`, `sightrag query`, `sightrag serve` from terminal. No Python needed.
+- **Qdrant store** : production-grade vector database for 1M+ images.
+- **Re-ranking** : cross-encoder re-ranks top results for better accuracy on large datasets.
+- **Backward compatible** : v0.1 and v0.2 code works unchanged.
 
 ## What SightRAG Is
 
@@ -65,7 +65,7 @@ SightRAG is not a model. Not a wrapper. Not a framework plugin.
 
 It is a complete visual retrieval system. You provide any detection model, any embedding model, any vector store. SightRAG handles the pipeline: load, detect, embed, index, retrieve.
 
-All models and indexes are stored in `~/.sightrag/` — your project folder stays clean.
+All models and indexes are stored in `~/.sightrag/` : your project folder stays clean.
 
 ## Project Structure
 
@@ -179,7 +179,7 @@ rag.show(results)
 rag.show(results, save="./output/")
 ```
 
-## Grounding DINO — Any Domain (NEW in v0.3)
+## Grounding DINO : Any Domain (NEW in v0.3)
 
 Detect ANY object by text description. No training needed.
 
@@ -190,9 +190,9 @@ results = rag.query("find cracked solder joint")
 rag.show(results)
 ```
 
-Works on any domain: medical, industrial, satellite, retail — just type what to find.
+Works on any domain: medical, industrial, satellite, retail : just type what to find.
 
-## Person Re-ID — Cross-Camera Tracking (NEW in v0.3)
+## Person Re-ID : Cross-Camera Tracking (NEW in v0.3)
 
 Track same person across multiple cameras.
 
@@ -221,7 +221,7 @@ sightrag clear
 sightrag serve --port 8000
 ```
 
-## Re-ranking — Better Accuracy (NEW in v0.3)
+## Re-ranking : Better Accuracy (NEW in v0.3)
 
 Improves result quality on large similar datasets.
 
@@ -291,7 +291,7 @@ class MyStore(VectorStoreBase):
 rag = SightRAG(store=MyStore())
 ```
 
-## Speed — Auto Backend Selection
+## Speed : Auto Backend Selection
 
 SightRAG automatically picks the fastest available backend:
 
@@ -354,29 +354,29 @@ rag = SightRAG(store="qdrant")    # production, 1M+
 ```
 Input (images / video / camera)
         ↓
-   C++ Core (fast load, resize, extract) — Python fallback
+   C++ Core (fast load, resize, extract) : Python fallback
         ↓
    Detection:
-   ├── YOLO (default — 80 COCO classes, fast)
-   ├── Grounding DINO (any domain, no training) — NEW
+   ├── YOLO (default : 80 COCO classes, fast)
+   ├── Grounding DINO (any domain, no training) : NEW
    └── Custom detector (user's own model)
         ↓
    Embedding:
-   ├── CLIP (default — general vision-language)
-   ├── Person Re-ID / OSNet (cross-camera tracking) — NEW
+   ├── CLIP (default : general vision-language)
+   ├── Person Re-ID / OSNet (cross-camera tracking) : NEW
    └── Custom embedder (user's own model)
         ↓
    Auto Backend (TensorRT > ONNX > OpenVINO > PyTorch)
         ↓
    Vector Store:
-   ├── SQLite (default — up to 100k)
+   ├── SQLite (default : up to 100k)
    ├── ChromaDB (medium scale)
-   ├── Qdrant (1M+ production) — NEW
+   ├── Qdrant (1M+ production) : NEW
    └── Custom store (user's own)
         ↓
-   Retrieval + Re-ranking (cosine → cross-encoder) — NEW
+   Retrieval + Re-ranking (cosine → cross-encoder) : NEW
         ↓
-   Visualization (rag.show — bounding boxes)
+   Visualization (rag.show : bounding boxes)
         ↓
 Output (matched images, scores, bboxes, timestamps)
 ```
@@ -393,7 +393,7 @@ API at `http://localhost:8000/docs`
 
 | Library | Purpose | Status |
 |---------|---------|--------|
-| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG — See. Search. Retrieve. | v0.3 |
+| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG : See. Search. Retrieve. | v0.3 |
 | [adaptive-intelligence](https://pypi.org/project/adaptive-intelligence/) | RL-based RAG orchestration | v4.0 |
 | [llmevalkit](https://pypi.org/project/llmevalkit/) | LLM evaluation (78+ metrics) | Stable |
 
@@ -401,10 +401,10 @@ API at `http://localhost:8000/docs`
 
 | Version | Focus |
 |---------|-------|
-| v0.1 | Core pipeline — image, video, camera, REST API |
-| v0.2 | Speed — C++ core, auto backends, pluggable models, rag.show() |
-| v0.3 (current) | Intelligence — Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking |
-| v1.0 | Production — edge deployment, compliance, enterprise |
+| v0.1 | Core pipeline : image, video, camera, REST API |
+| v0.2 | Speed : C++ core, auto backends, pluggable models, rag.show() |
+| v0.3 (current) | Intelligence : Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking |
+| v1.0 | Production : edge deployment, compliance, enterprise |
 
 ## License
 
