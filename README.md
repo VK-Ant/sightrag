@@ -384,7 +384,7 @@ rag = SightRAG(store="qdrant")    # production, 1M+
 ## Architecture
 
 <p align="center">
-  <img src="assets/arc.png" alt="arc" width="100%">
+  <img src="https://raw.githubusercontent.com/VK-Ant/sightrag/main/assets/arc.png" alt="arc" width="100%">
 </p>
 
 ## Docker
