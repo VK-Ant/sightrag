@@ -21,9 +21,9 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="sightrag",
-    version="0.4.1",
+    version="0.4.2",
     author="Venkatkumar Rajan",
-    description="SightRAG — Image and Video RAG. See. Search. Retrieve.",
+    description="SightRAG: Image and Video RAG. See. Search. Retrieve.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VK-Ant/sightrag",
