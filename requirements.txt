@@ -1,3 +1,9 @@
+# SightRAG v0.4
+# Python 3.9 - 3.12 recommended
+#
+# GPU users install PyTorch CUDA first:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
 torch>=2.0.0
 torchvision>=0.15.0
 transformers>=4.30.0
@@ -5,7 +11,3 @@ ultralytics>=8.0.0
 opencv-python>=4.8.0
 Pillow>=9.0.0
 numpy>=1.24.0
-
-# Optional
-# pip install chromadb  (for large scale)
-# pip install fastapi uvicorn python-multipart  (for REST API)

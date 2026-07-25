@@ -29,16 +29,26 @@ class SQLiteStore(VectorStoreBase):
                 confidence  REAL,
                 label       TEXT,
                 source_type TEXT,
+                ocr_text    TEXT DEFAULT '',
                 metadata    TEXT
             )
         """)
+        
+        # Auto-migrate: add ocr_text column if old database
+        try:
+            cols = [row[1] for row in self.conn.execute("PRAGMA table_info(vectors)").fetchall()]
+            if "ocr_text" not in cols:
+                self.conn.execute("ALTER TABLE vectors ADD COLUMN ocr_text TEXT DEFAULT ''")
+                self.conn.commit()
+        except Exception:
+            pass
         self.conn.commit()
 
     def add(self, id: str, embedding, metadata: dict = {}):
         emb = np.array(embedding, dtype=np.float32).flatten()
         self.conn.execute("""
             INSERT OR REPLACE INTO vectors 
-            VALUES (?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
         """, (
             str(id),
             pickle.dumps(emb),
@@ -48,6 +58,7 @@ class SQLiteStore(VectorStoreBase):
             float(metadata.get("confidence", 0.0)),
             str(metadata.get("label", "")),
             str(metadata.get("source_type", "image")),
+            str(metadata.get("ocr_text", "")),
             json.dumps(metadata)
         ))
         self.conn.commit()
@@ -56,7 +67,7 @@ class SQLiteStore(VectorStoreBase):
         rows = self.conn.execute("""
             SELECT id, embedding, image_path,
                    bbox, timestamp, confidence,
-                   label, source_type, metadata
+                   label, source_type, ocr_text, metadata
             FROM vectors
         """).fetchall()
 
@@ -113,6 +124,7 @@ class SQLiteStore(VectorStoreBase):
                 "confidence":  round(float(row[5]), 4),
                 "label":       row[6],
                 "source_type": row[7],
+                "ocr_text":    row[8] if len(row) > 8 else "",
             })
         return results
 

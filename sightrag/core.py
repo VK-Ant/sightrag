@@ -1,26 +1,18 @@
 """
-SightRAG v0.3 — See. Search. Retrieve.
+SightRAG v0.4 — See. Search. Retrieve. Understand.
 
-Usage:
+Basic:
     rag = SightRAG()
     rag.index("./photos/")
     results = rag.query("find person")
-    rag.show(results)
 
-Custom models:
-    rag = SightRAG(detector=MyDetector(), embedder=MyEmbedder())
+With OCR (reads text on images):
+    rag = SightRAG(ocr=True)
+    results = rag.query("find Calgon")
 
-Grounding DINO (any domain):
-    rag = SightRAG(detector="grounding-dino")
-    results = rag.query("find cracked solder joint")
-
-Person Re-ID:
-    rag = SightRAG(embedder="reid")
-    results = rag.query(reference="./suspect.jpg")
-
-Re-ranking:
-    rag = SightRAG(rerank=True)
-    results = rag.query("find person", top_k=5)
+With multimodal understanding:
+    rag = SightRAG(ocr=True, multimodal="qwen2-vl")
+    results = rag.query("find damaged product", understand=True)
 """
 
 import os
@@ -41,13 +33,18 @@ class SightRAG:
                  store="sqlite",
                  domain_hint=None,
                  index_path=None,
-                 rerank=False):
+                 rerank=False,
+                 ocr=False,
+                 multimodal=None,
+                 api_key=None):
         
         self.domain_hint = domain_hint
         self._store_type = store if isinstance(store, str) else "custom"
         self._index_path = index_path or os.path.join(SIGHTRAG_HOME, "index")
         self._rerank = rerank
         self._reranker = None
+        self._ocr = None
+        self._multimodal = None
         
         os.makedirs(SIGHTRAG_HOME, exist_ok=True)
         
@@ -68,7 +65,7 @@ class SightRAG:
             self._detector = detector
             print(f"[SightRAG] Detector: custom ({type(detector).__name__})")
         else:
-            raise TypeError("detector must be string or DetectorBase subclass")
+            raise TypeError("detector must be string or DetectorBase")
         
         # Embedder
         if embedder is None:
@@ -81,7 +78,19 @@ class SightRAG:
             self._embedder = embedder
             print(f"[SightRAG] Embedder: custom ({type(embedder).__name__})")
         else:
-            raise TypeError("embedder must be string or EmbedderBase subclass")
+            raise TypeError("embedder must be string or EmbedderBase")
+        
+        # OCR
+        if ocr:
+            from .ocr import OCREngine
+            self._ocr = OCREngine()
+            print(f"[SightRAG] OCR: {self._ocr.engine_name}")
+        
+        # Multimodal
+        if multimodal:
+            from .multimodal import MultimodalEngine
+            self._multimodal = MultimodalEngine(model=multimodal, api_key=api_key)
+            print(f"[SightRAG] Multimodal: {self._multimodal.model_name}")
         
         # Re-ranker
         if rerank:
@@ -96,8 +105,12 @@ class SightRAG:
         from .indexer import Indexer
         from .retriever import Retriever
         
-        self._indexer = Indexer(self._detector, self._embedder, self._store)
-        self._retriever = Retriever(self._embedder, self._detector, self._store, domain_hint)
+        self._indexer = Indexer(
+            self._detector, self._embedder, self._store, self._ocr
+        )
+        self._retriever = Retriever(
+            self._embedder, self._detector, self._store, domain_hint
+        )
         
         print("[SightRAG] Ready.")
     
@@ -108,7 +121,7 @@ class SightRAG:
         elif name in ("yolo", "yolo11"):
             return self._backend
         else:
-            raise ValueError(f"Unknown detector: {name}. Options: 'yolo', 'grounding-dino'")
+            raise ValueError(f"Unknown detector: {name}")
     
     def _load_embedder(self, name):
         if name in ("reid", "re-id", "person-reid"):
@@ -117,7 +130,7 @@ class SightRAG:
         elif name in ("clip", "clip-vit"):
             return self._backend
         else:
-            raise ValueError(f"Unknown embedder: {name}. Options: 'clip', 'reid'")
+            raise ValueError(f"Unknown embedder: {name}")
     
     def _init_store(self, store_type, path):
         if isinstance(store_type, str):
@@ -129,16 +142,14 @@ class SightRAG:
                     from .store.chroma_store import ChromaStore
                     return ChromaStore(path)
                 except ImportError:
-                    print("[SightRAG] ChromaDB not found. Using SQLite.")
                     from .store.sqlite_store import SQLiteStore
                     return SQLiteStore(path)
             elif store_type == "qdrant":
                 from .store.qdrant_store import QdrantStore
                 return QdrantStore()
             else:
-                raise ValueError(f"Unknown store: {store_type}. Options: 'sqlite', 'chroma', 'qdrant'")
-        else:
-            return store_type
+                raise ValueError(f"Unknown store: {store_type}")
+        return store_type
     
     def index(self, path=None, source=None, camera_id=0, fps=1):
         """Index images, video, or camera."""
@@ -146,7 +157,7 @@ class SightRAG:
             self._indexer.index_camera(camera_id=camera_id, fps=fps)
             return self
         if path is None:
-            raise ValueError("Provide a path or source='camera'")
+            raise ValueError("Provide path or source='camera'")
         if os.path.isdir(path):
             self._indexer.index_folder(path, fps=fps)
         elif os.path.isfile(path):
@@ -166,34 +177,81 @@ class SightRAG:
         for j, region in enumerate(regions):
             embedding = self._embedder.embed_image(region["crop"])
             if not np.allclose(embedding, 0):
-                self._store.add(f"img_{j}", embedding, {
+                metadata = {
                     "image_path": str(path),
                     "bbox": region["bbox"],
                     "label": region["label"],
                     "confidence": region["confidence"],
-                    "source_type": "image"
-                })
+                    "source_type": "image",
+                    "ocr_text": ""
+                }
+                # OCR at index time
+                if self._ocr:
+                    ocr_result = self._ocr.read(region["crop"])
+                    metadata["ocr_text"] = ocr_result["text"]
+                
+                self._store.add(f"img_{j}", embedding, metadata)
         print(f"[SightRAG] 1 image indexed. Total: {self.count()} regions.")
     
-    def query(self, text=None, reference=None, top_k=5):
-        """Search indexed content."""
+    def query(self, text=None, reference=None, top_k=5, understand=False):
+        """
+        Search indexed content.
+        
+        rag.query("find person")                          # fast visual
+        rag.query("find Calgon")                          # matches OCR text
+        rag.query("find damaged product", understand=True) # LLM understanding
+        """
         if text is None and reference is None:
             raise ValueError("Provide text or reference image.")
         
-        # If re-ranking, fetch more candidates first
-        fetch_k = top_k * 20 if self._reranker and text else top_k
+        # Fetch more if re-ranking or understanding needed
+        fetch_k = top_k
+        if self._reranker or (understand and self._multimodal):
+            fetch_k = min(top_k * 20, self._store.count() or top_k)
         
         if text:
             results = self._retriever.query_text(text, fetch_k)
+            
+            # Check OCR text matches
+            if self._ocr and text:
+                results = self._boost_ocr_matches(results, text)
         else:
             results = self._retriever.query_reference(reference, fetch_k)
         
-        # Re-rank if enabled and text query
+        # Re-rank with cross-encoder
         if self._reranker and text and len(results) > top_k:
             results = self._reranker.rerank(text, results, top_k)
-        else:
-            results = results[:top_k]
         
+        # Multimodal understanding (only when explicitly asked)
+        if understand and self._multimodal and text:
+            candidates = results[:min(10, len(results))]
+            results = self._multimodal.rerank_with_understanding(
+                text, candidates, top_k
+            )
+        
+        return results[:top_k]
+    
+    def _boost_ocr_matches(self, results, query):
+        """Boost results where OCR text matches query."""
+        query_lower = query.lower()
+        query_words = set(query_lower.split())
+        
+        for r in results:
+            ocr_text = r.get("ocr_text", "").lower()
+            if not ocr_text:
+                continue
+            ocr_words = set(ocr_text.split())
+            
+            # Check word overlap
+            matches = query_words & ocr_words
+            if matches:
+                # Boost score based on OCR match
+                boost = len(matches) / len(query_words) * 0.3
+                r["score"] = min(1.0, r.get("score", 0) + boost)
+                r["ocr_match"] = True
+        
+        # Re-sort by boosted score
+        results.sort(key=lambda r: r.get("score", 0), reverse=True)
         return results
     
     def show(self, results, save=None, max_show=5):
@@ -210,5 +268,10 @@ class SightRAG:
         return self
     
     def __repr__(self):
-        return (f"SightRAG(backend='{self._backend.name}', "
-                f"indexed={self.count()} regions)")
+        features = [f"backend='{self._backend.name}'"]
+        features.append(f"indexed={self.count()}")
+        if self._ocr:
+            features.append("ocr=True")
+        if self._multimodal:
+            features.append(f"multimodal='{self._multimodal.model_name}'")
+        return f"SightRAG({', '.join(features)})"

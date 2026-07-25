@@ -41,8 +41,10 @@ For faster inference:
 pip install sightrag[onnx]               # 2x faster (any CPU)
 ```
 
-For v0.3 features:
+For v0.4 features:
 ```bash
+pip install sightrag[ocr]                # reads text on images
+pip install sightrag[multimodal]         # LLM understanding
 pip install sightrag[grounding-dino]     # any domain detection
 pip install sightrag[reid]               # person tracking
 pip install sightrag[cli]                # terminal commands
@@ -50,14 +52,13 @@ pip install sightrag[qdrant]             # large scale store
 pip install sightrag[all]                # everything
 ```
 
-## What's New in v0.3
+## What's New in v0.4
 
-- **Grounding DINO** : detect ANY object by text description. No training, no COCO limitation. "find cracked solder joint" just works.
-- **Person Re-ID** : track same person across multiple cameras using body re-identification models.
-- **CLI tool** : `sightrag index`, `sightrag query`, `sightrag serve` from terminal. No Python needed.
-- **Qdrant store** : production-grade vector database for 1M+ images.
-- **Re-ranking** : cross-encoder re-ranks top results for better accuracy on large datasets.
-- **Backward compatible** : v0.1 and v0.2 code works unchanged.
+- **OCR integration** : reads text on products, signs, labels, documents during indexing. "find Calgon 2kg" matches actual text on packaging. Zero query-time overhead.
+- **Multimodal LLM** : optional semantic understanding at query time. Local models (Qwen2-VL) or API (GPT-4o). Use `understand=True` for deep queries.
+- **Text + visual hybrid search** : OCR text match boosts CLIP visual scores automatically.
+- **All v0.3 features** : Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking.
+- **Backward compatible** : v0.1/v0.2/v0.3 code works unchanged.
 
 ## What SightRAG Is
 
@@ -179,7 +180,38 @@ rag.show(results)
 rag.show(results, save="./output/")
 ```
 
-## Grounding DINO : Any Domain (NEW in v0.3)
+## OCR Search : Read Text (NEW in v0.4)
+
+SightRAG reads text on images during indexing. Query matches both visual features AND text content.
+
+```python
+rag = SightRAG(ocr=True)
+rag.index("./store_photos/")
+results = rag.query("find Calgon")       # matches OCR text on packaging
+results = rag.query("find EXIT sign")    # matches text on signs
+results = rag.query("find plate AB1234") # matches license plate text
+```
+
+OCR runs at INDEX time only. Zero overhead at query time.
+
+## Multimodal Understanding (NEW in v0.4)
+
+Optional LLM-powered semantic understanding. Runs on top candidates only, not all images.
+
+```python
+# Local model (free, private)
+rag = SightRAG(ocr=True, multimodal="qwen2-vl")
+results = rag.query("find damaged product", understand=True)
+
+# API model (most accurate)
+rag = SightRAG(multimodal="gpt-4o", api_key="...")
+results = rag.query("find suspicious activity", understand=True)
+
+# Without understand=True, query is instant (no LLM call)
+results = rag.query("find person")  # fast, no LLM
+```
+
+## Grounding DINO : Any Domain
 
 Detect ANY object by text description. No training needed.
 
@@ -192,7 +224,7 @@ rag.show(results)
 
 Works on any domain: medical, industrial, satellite, retail : just type what to find.
 
-## Person Re-ID : Cross-Camera Tracking (NEW in v0.3)
+## Person Re-ID : Cross-Camera Tracking 
 
 Track same person across multiple cameras.
 
@@ -206,7 +238,7 @@ rag.show(results)
 
 Returns every camera and timestamp where that person appeared.
 
-## CLI Tool (NEW in v0.3)
+## CLI Tool 
 
 ```bash
 pip install sightrag[cli]
@@ -221,7 +253,7 @@ sightrag clear
 sightrag serve --port 8000
 ```
 
-## Re-ranking : Better Accuracy (NEW in v0.3)
+## Re-ranking : Better Accuracy 
 
 Improves result quality on large similar datasets.
 
@@ -351,35 +383,9 @@ rag = SightRAG(store="qdrant")    # production, 1M+
 
 ## Architecture
 
-```
-Input (images / video / camera)
-        ↓
-   C++ Core (fast load, resize, extract) : Python fallback
-        ↓
-   Detection:
-   ├── YOLO (default : 80 COCO classes, fast)
-   ├── Grounding DINO (any domain, no training) : NEW
-   └── Custom detector (user's own model)
-        ↓
-   Embedding:
-   ├── CLIP (default : general vision-language)
-   ├── Person Re-ID / OSNet (cross-camera tracking) : NEW
-   └── Custom embedder (user's own model)
-        ↓
-   Auto Backend (TensorRT > ONNX > OpenVINO > PyTorch)
-        ↓
-   Vector Store:
-   ├── SQLite (default : up to 100k)
-   ├── ChromaDB (medium scale)
-   ├── Qdrant (1M+ production) : NEW
-   └── Custom store (user's own)
-        ↓
-   Retrieval + Re-ranking (cosine → cross-encoder) : NEW
-        ↓
-   Visualization (rag.show : bounding boxes)
-        ↓
-Output (matched images, scores, bboxes, timestamps)
-```
+<p align="center">
+  <img src="assets/arc.png" alt="arc" width="100%">
+</p>
 
 ## Docker
 
@@ -393,7 +399,7 @@ API at `http://localhost:8000/docs`
 
 | Library | Purpose | Status |
 |---------|---------|--------|
-| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG : See. Search. Retrieve. | v0.3 |
+| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG : See. Search. Retrieve. | v0.4 |
 | [adaptive-intelligence](https://pypi.org/project/adaptive-intelligence/) | RL-based RAG orchestration | v4.0 |
 | [llmevalkit](https://pypi.org/project/llmevalkit/) | LLM evaluation (78+ metrics) | Stable |
 
@@ -403,7 +409,8 @@ API at `http://localhost:8000/docs`
 |---------|-------|
 | v0.1 | Core pipeline : image, video, camera, REST API |
 | v0.2 | Speed : C++ core, auto backends, pluggable models, rag.show() |
-| v0.3 (current) | Intelligence : Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking |
+| v0.4 | Intelligence : Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking |
+| v0.4 (current) | Understanding : OCR reads text, multimodal LLM, hybrid search |
 | v1.0 | Production : edge deployment, compliance, enterprise |
 
 ## License

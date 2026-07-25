@@ -16,10 +16,11 @@ except ImportError:
 
 class Indexer:
     
-    def __init__(self, detector, embedder, store):
+    def __init__(self, detector, embedder, store, ocr=None):
         self.detector = detector
         self.embedder = embedder
         self.store = store
+        self.ocr = ocr
     
     def _index_image(self, path_str, image, prefix):
         count = 0
@@ -27,13 +28,20 @@ class Indexer:
         for j, region in enumerate(regions):
             embedding = self.embedder.embed_image(region["crop"])
             if not np.allclose(embedding, 0):
-                self.store.add(f"{prefix}_{j}", embedding, {
+                metadata = {
                     "image_path": path_str,
                     "bbox": region["bbox"],
                     "label": region["label"],
                     "confidence": region["confidence"],
-                    "source_type": "image"
-                })
+                    "source_type": "image",
+                    "ocr_text": ""
+                }
+                # OCR at index time — reads text once, stored permanently
+                if self.ocr:
+                    ocr_result = self.ocr.read(region["crop"])
+                    metadata["ocr_text"] = ocr_result["text"]
+                
+                self.store.add(f"{prefix}_{j}", embedding, metadata)
                 count += 1
         return count
     

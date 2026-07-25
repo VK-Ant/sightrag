@@ -27,7 +27,7 @@ v0.3 new features:
 
 from .core import SightRAG
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Ant (VK-Ant)"
 __license__ = "Apache-2.0"
 

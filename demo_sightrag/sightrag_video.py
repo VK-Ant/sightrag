@@ -1,5 +1,5 @@
 """
-SightRAG v0.3 Demo — Video Indexing
+SightRAG v0.4 Demo — Video Indexing + OCR
 Run: python demo_sightrag/sightrag_video.py
 """
 import os, sys
@@ -7,8 +7,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from sightrag import SightRAG
 
 print("=" * 55)
-print("  SightRAG v0.3 Demo — Video")
-print("  See. Search. Retrieve.")
+print("  SightRAG v0.4 Demo — Video")
+print("  See. Search. Retrieve. Understand.")
 print("=" * 55)
 
 video_dir = os.path.join(os.path.dirname(__file__), "video_samples")
@@ -28,24 +28,39 @@ if not videos:
             writer.write(cv2.imread(os.path.join(input_dir, img)))
         writer.release()
         videos = ["sample_video.mp4"]
-    except Exception as e:
-        print(f"  Put your .mp4 file in video_samples/ folder")
+    except Exception:
+        print("  Put your .mp4 file in video_samples/ folder")
         sys.exit(1)
 
+output_dir = os.path.join(os.path.dirname(__file__), "..", "output")
+
+# ─── Without OCR ───
+print("\n── Visual Search ──")
 rag = SightRAG()
 for v in videos:
     rag.index(os.path.join(video_dir, v), fps=1)
 
-for q in ["find person", "find shelf", "find car"]:
+for q in ["find person", "find car"]:
     results = rag.query(q, top_k=2)
     print(f'\n  "{q}"')
     for i, r in enumerate(results, 1):
-        ts = r.get('timestamp', '')
-        print(f"   {i}. score: {r['score']:.4f} | {r['label']} | t={ts}")
+        print(f"   {i}. score: {r['score']:.4f} | {r['label']} | t={r.get('timestamp','')}")
 
-# v0.3: Visualize
-output_dir = os.path.join(os.path.dirname(__file__), "..", "output")
-rag.show(rag.query("find person", top_k=3), save=output_dir)
-
+rag.show(rag.query("find person", top_k=2), save=output_dir)
 rag.clear()
+
+# ─── With OCR ───
+print("\n── OCR Search ──")
+try:
+    rag_ocr = SightRAG(ocr=True)
+    for v in videos:
+        rag_ocr.index(os.path.join(video_dir, v), fps=1)
+    results = rag_ocr.query("find text", top_k=2)
+    print(f'  "find text"')
+    for i, r in enumerate(results, 1):
+        print(f"   {i}. score: {r['score']:.4f} | OCR: '{r.get('ocr_text','')}'")
+    rag_ocr.clear()
+except Exception as e:
+    print(f"  OCR skipped: {str(e)[:50]}")
+
 print("\n  Video demo complete!")
