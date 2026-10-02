@@ -21,9 +21,9 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="sightrag",
-    version="0.4.2",
+    version="0.5.0",
     author="Venkatkumar Rajan",
-    description="SightRAG: Image and Video RAG. See. Search. Retrieve.",
+    description="SightRAG: Image and Video RAG. See. Search. Retrieve. Track.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VK-Ant/sightrag",
@@ -50,11 +50,16 @@ setup(
         "reid": ["torchreid"],
         "ocr": ["easyocr>=1.7.0"],
         "multimodal": ["transformers>=4.40.0", "accelerate"],
+        "segment": ["ultralytics>=8.0.0"],
+        "sam2": ["transformers>=4.40.0", "accelerate"],
+        "track": [],  # no extra deps — ByteTrack is pure Python
+        "botsort": [],  # uses existing embedder
         "cli": ["click>=8.0.0"],
         "api": ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
         "all": ["pybind11>=2.11.0", "onnxruntime>=1.16.0", "chromadb>=0.4.0",
                 "qdrant-client>=1.7.0", "click>=8.0.0",
-                "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"],
+                "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6",
+                "easyocr>=1.7.0", "accelerate"],
     },
     entry_points={
         "console_scripts": [
@@ -63,10 +68,10 @@ setup(
         ],
     },
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    keywords="computer-vision rag image-search video-search retrieval clip yolo",
+    keywords="computer-vision rag image-search video-search retrieval clip yolo tracking segmentation",
 )

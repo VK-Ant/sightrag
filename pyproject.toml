@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sightrag"
-version = "0.4.2"
-description = "SightRAG: Image and Video RAG. See. Search. Retrieve."
+version = "0.5.0"
+description = "SightRAG: Image and Video RAG. See. Search. Retrieve. Track."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
 authors = [{name = "Venkatkumar Rajan"}]
-keywords = ["computer-vision", "rag", "image-search", "video-search", "clip", "yolo"]
+keywords = ["computer-vision", "rag", "image-search", "video-search", "clip", "yolo", "tracking", "segmentation"]
 
 dependencies = [
     "torch>=2.0.0",
@@ -26,9 +26,12 @@ dependencies = [
 fast = ["pybind11>=2.11.0"]
 onnx = ["onnxruntime>=1.16.0"]
 chroma = ["chromadb>=0.4.0"]
+sam2 = ["transformers>=4.40.0", "accelerate"]
+cli = ["click>=8.0.0"]
 api = ["fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"]
 all = ["pybind11>=2.11.0", "onnxruntime>=1.16.0", "chromadb>=0.4.0",
-       "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6"]
+       "fastapi>=0.100.0", "uvicorn>=0.23.0", "python-multipart>=0.0.6",
+       "click>=8.0.0", "easyocr>=1.7.0", "accelerate"]
 
 [project.urls]
 Homepage = "https://github.com/VK-Ant/sightrag"

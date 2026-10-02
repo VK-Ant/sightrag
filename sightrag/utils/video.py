@@ -64,6 +64,37 @@ def extract_frames(video_path: str, fps: int = 1):
     return frames
 
 
+def get_frame_at_timestamp(video_path: str, seconds: float):
+    """
+    Get a single frame from video at the given timestamp (seconds).
+    Returns PIL.Image or None.
+    """
+    try:
+        import cv2
+    except ImportError:
+        return None
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return None
+
+    video_fps = cap.get(cv2.CAP_PROP_FPS)
+    if video_fps <= 0:
+        cap.release()
+        return None
+
+    frame_num = int(seconds * video_fps)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
+    ret, frame = cap.read()
+    cap.release()
+
+    if not ret:
+        return None
+
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    return Image.fromarray(rgb)
+
+
 def _format_timestamp(seconds: float) -> str:
     """Convert seconds to HH:MM:SS format."""
     h = int(seconds // 3600)
