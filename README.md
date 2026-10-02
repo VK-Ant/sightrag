@@ -546,13 +546,9 @@ docker-compose up
 
 API at `http://localhost:8000/docs`
 
-## Three Library Ecosystem
+## Ant Intelligence Ecosystem
 
-| Library | Purpose | Status |
-|---------|---------|--------|
-| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG : See. Search. Retrieve. Track. | v0.5 |
-| [adaptive-intelligence](https://pypi.org/project/adaptive-intelligence/) | RL-based RAG orchestration | v4.0 |
-| [llmevalkit](https://pypi.org/project/llmevalkit/) | LLM evaluation (78+ metrics) | Stable |
+Documentation: https://vk-ant.github.io/ant-intelligence-ecosystem/#home
 
 ## Roadmap
 
@@ -572,7 +568,3 @@ Apache 2.0
 ## Author
 
 Built by **Venkatkumar Rajan**
-
-- GitHub: https://github.com/VK-Ant
-- LinkedIn: https://linkedin.com/in/vk-ant
-- Portfolio: https://vk-ant.github.io/Venkatkumar
