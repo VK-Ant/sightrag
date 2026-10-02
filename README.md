@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">SightRAG</h1>
-<h3 align="center">See. Search. Retrieve.</h3>
+<h3 align="center">See. Search. Retrieve. Track.</h3>
 
 <p align="center">
      <a href="https://pypi.org/project/sightrag/"><img src="https://img.shields.io/badge/PyPI-sightrag-blue" alt="PyPI"></a>  
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  A pluggable visual RAG system. Any detection model. Any embedding model. Any vector store. Three lines of code.
+  A pluggable visual RAG system. Any detection model. Any embedding model. Any vector store. Any segmentor. Any tracker. Three lines of code.
 </p>
 
 ---
@@ -41,30 +41,40 @@ For faster inference:
 pip install sightrag[onnx]               # 2x faster (any CPU)
 ```
 
-For v0.4 features:
+For v0.5 features:
 ```bash
-pip install sightrag[ocr]                # reads text on images
+pip install sightrag[sam2]               # SAM2 segmentation model
+pip install sightrag[track]              # object tracking dependencies
+pip install sightrag[ocr]               # reads text on images
 pip install sightrag[multimodal]         # LLM understanding
 pip install sightrag[grounding-dino]     # any domain detection
-pip install sightrag[reid]               # person tracking
+pip install sightrag[reid]               # person re-identification
 pip install sightrag[cli]                # terminal commands
 pip install sightrag[qdrant]             # large scale store
 pip install sightrag[all]                # everything
 ```
 
-## What's New in v0.4
+## What's New in v0.5
 
-- **OCR integration** : reads text on products, signs, labels, documents during indexing. "find Calgon 2kg" matches actual text on packaging. Zero query-time overhead.
-- **Multimodal LLM** : optional semantic understanding at query time. Local models (Qwen2-VL) or API (GPT-4o). Use `understand=True` for deep queries.
-- **Text + visual hybrid search** : OCR text match boosts CLIP visual scores automatically.
-- **All v0.3 features** : Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking.
-- **Backward compatible** : v0.1/v0.2/v0.3 code works unchanged.
+- **Segmentation** : pixel-level masks on any input (images, video, streams, cameras). `SightRAG(segment=True)`. Default segmentor works automatically; plug your own via `SegmentorBase`.
+- **Object Tracking** : follow objects across frames with persistent identity. `SightRAG(track=True)`. Works on image folders (treated as frame sequences), video files, video streams, and CCTV cameras. Default tracker works automatically; plug your own via `TrackerBase`.
+- **Find + Track** : one-call query and follow. `rag.find_and_track("person in red")` returns full trajectories.
+- **Timeline** : `rag.timeline(track_id=3)` returns complete movement history with timestamps, bounding boxes, and frame counts.
+- **All features on all inputs** : detection, segmentation, and tracking all work on images, video, streams, and cameras uniformly.
+- **Backward compatible** : v0.1/v0.2/v0.3/v0.4 code works unchanged.
+
+## What Was New in v0.4
+
+- **OCR integration** : reads text on products, signs, labels, documents during indexing. Zero query-time overhead.
+- **Multimodal LLM** : optional semantic understanding at query time. Use `understand=True` for deep queries.
+- **Text + visual hybrid search** : OCR text match boosts visual scores automatically.
+- **Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking.**
 
 ## What SightRAG Is
 
 SightRAG is not a model. Not a wrapper. Not a framework plugin.
 
-It is a complete visual retrieval system. You provide any detection model, any embedding model, any vector store. SightRAG handles the pipeline: load, detect, embed, index, retrieve.
+It is a complete visual retrieval system. You provide any detection model, any embedding model, any vector store, any segmentor, any tracker. SightRAG handles the pipeline: load, detect, segment, embed, index, track, retrieve.
 
 All models and indexes are stored in `~/.sightrag/` : your project folder stays clean.
 
@@ -81,10 +91,20 @@ sightrag/
 │   │   └── openvino_backend.py  ← Intel CPU optimized
 │   ├── detectors/base.py        ← plug custom detection model
 │   ├── embedders/base.py        ← plug custom embedding model
+│   ├── segmentors/              ← v0.5: segmentation (plug custom)
+│   │   ├── base.py              ← SegmentorBase interface
+│   │   ├── yolo_segmentor.py    ← default segmentor
+│   │   ├── sam2_segmentor.py    ← SAM2 segmentor (optional)
+│   │   └── hf_segmentor.py      ← HuggingFace segmentor
+│   ├── trackers/                ← v0.5: object tracking (plug custom)
+│   │   ├── base.py              ← TrackerBase interface
+│   │   ├── bytetrack.py         ← default tracker
+│   │   └── botsort.py           ← Re-ID aware tracker
 │   ├── store/                   ← SQLite (default) + ChromaDB
-│   ├── visualizer.py            ← rag.show() with bounding boxes
+│   ├── visualizer.py            ← rag.show() + timeline visualization
 │   ├── indexer.py               ← C++ core with Python fallback
 │   ├── retriever.py             ← text + reference queries
+│   ├── cli.py                   ← CLI commands
 │   └── api.py                   ← REST API (FastAPI)
 │
 ├── cpp/                         ← C++ speed core (optional)
@@ -180,7 +200,83 @@ rag.show(results)
 rag.show(results, save="./output/")
 ```
 
-## OCR Search : Read Text (NEW in v0.4)
+## Segmentation (NEW in v0.5)
+
+Pixel-level masks on any input type. Default segmentor works automatically.
+
+```python
+rag = SightRAG(segment=True)
+rag.index("./photos/")                   # images with masks
+rag.index("./video.mp4", fps=5)          # video with masks
+rag.index(source="camera")               # live camera with masks
+
+results = rag.query("find person", segment=True)
+for r in results:
+    mask = r.get("mask")                  # numpy array (H x W), or None
+    if mask is not None:
+        print(f"Mask area: {mask.sum()} pixels")
+
+rag.show(results)  # displays masks overlaid on images
+```
+
+## Object Tracking (NEW in v0.5)
+
+Follow objects across frames with persistent identity. Works on image folders, video files, video streams, and cameras.
+
+```python
+rag = SightRAG(track=True)
+
+# Works on any input type
+rag.index("./photos/")                   # image folder as frame sequence
+rag.index("./footage.mp4", fps=5)        # video file
+rag.index(source="camera")               # live camera / RTSP stream
+
+# Query results include track_id
+results = rag.query("find person")
+for r in results:
+    print(f"{r['label']} | Track#{r.get('track_id')}")
+
+# List all tracked objects
+all_tracks = rag.get_all_tracks()
+for t in all_tracks:
+    print(f"Track#{t['track_id']}: {t['label']} "
+          f"({t['first_timestamp']}s to {t['last_timestamp']}s, "
+          f"{t['frame_count']} frames)")
+```
+
+## Find + Track (NEW in v0.5)
+
+One-call query and follow. Describe what to find, get full trajectories.
+
+```python
+rag = SightRAG(track=True)
+rag.index("./footage.mp4", fps=5)
+
+timelines = rag.find_and_track("person in red shirt", top_k=2)
+for tl in timelines:
+    print(f"Track#{tl['track_id']}: {tl['label']}")
+    print(f"  First: {tl['first_timestamp']}s | Last: {tl['last_timestamp']}s")
+    print(f"  Frames: {tl['frame_count']}")
+```
+
+## Timeline (NEW in v0.5)
+
+Full movement history for a tracked object.
+
+```python
+tl = rag.timeline(track_id=3)
+print(f"Track#{tl['track_id']}: {tl['label']}")
+print(f"  {tl['first_timestamp']}s to {tl['last_timestamp']}s")
+print(f"  {tl['frame_count']} frames, {len(tl['states'])} detections")
+
+# Combine segmentation + tracking
+rag = SightRAG(segment=True, track=True)
+rag.index("./footage.mp4", fps=5)
+results = rag.query("find person")
+# Each result has both mask AND track_id
+```
+
+## OCR Search : Read Text (v0.4)
 
 SightRAG reads text on images during indexing. Query matches both visual features AND text content.
 
@@ -194,7 +290,7 @@ results = rag.query("find plate AB1234") # matches license plate text
 
 OCR runs at INDEX time only. Zero overhead at query time.
 
-## Multimodal Understanding (NEW in v0.4)
+## Multimodal Understanding (v0.4)
 
 Optional LLM-powered semantic understanding. Runs on top candidates only, not all images.
 
@@ -245,8 +341,17 @@ pip install sightrag[cli]
 
 sightrag index ./photos/
 sightrag index ./video.mp4 --fps 2
+sightrag index ./video.mp4 --fps 5 --track       # v0.5: with tracking
+sightrag index ./photos/ --segment                # v0.5: with segmentation
 sightrag query "find person near exit"
 sightrag query --reference ./suspect.jpg --top-k 10
+sightrag query "find person" --segment            # v0.5: include masks
+
+# v0.5: Track commands
+sightrag find-track "person in red" --video ./footage.mp4 --fps 5
+sightrag tracks                                    # list all tracked objects
+sightrag timeline 3                                # timeline for Track#3
+
 sightrag show --query "find person" --save ./output/
 sightrag status
 sightrag clear
@@ -264,7 +369,7 @@ results = rag.query("find empty shelf", top_k=5)
 # Fetches top 100, re-ranks to best 5
 ```
 
-## Pluggable Models
+## Pluggable Components
 
 ### Custom Detector
 
@@ -323,6 +428,46 @@ class MyStore(VectorStoreBase):
 rag = SightRAG(store=MyStore())
 ```
 
+### Custom Segmentor (v0.5)
+
+```python
+from sightrag.segmentors.base import SegmentorBase
+
+class MySegmentor(SegmentorBase):
+    def segment(self, image):
+        preds = self.model.predict(image)
+        return [
+            {"bbox": [p.x1, p.y1, p.x2, p.y2],
+             "label": p.label,
+             "confidence": p.score,
+             "mask": p.binary_mask}    # numpy array (H x W)
+            for p in preds
+        ]
+
+rag = SightRAG(segment=True, segmentor=MySegmentor())
+```
+
+### Custom Tracker (v0.5)
+
+```python
+from sightrag.trackers.base import TrackerBase
+
+class MyTracker(TrackerBase):
+    def update(self, detections, frame_idx, timestamp="0.00"):
+        # Match detections to existing tracks, return TrackState list
+        ...
+
+    def get_tracks(self):
+        # Return dict of {track_id: Track}
+        ...
+
+    def reset(self):
+        # Reset tracker state for new sequence
+        ...
+
+rag = SightRAG(track=True, tracker=MyTracker())
+```
+
 ## Speed : Auto Backend Selection
 
 SightRAG automatically picks the fastest available backend:
@@ -362,7 +507,13 @@ sightrag-server
     "confidence":  0.8721,
     "bbox":        [120, 45, 380, 290],
     "timestamp":   "",
-    "source_type": "image"
+    "source_type": "image",
+
+    # v0.5 - present when segment=True
+    "mask":        np.array(...),   # pixel-level binary mask (H x W)
+
+    # v0.5 - present when track=True
+    "track_id":    3,               # unique object identity across frames
 }
 ```
 
@@ -399,7 +550,7 @@ API at `http://localhost:8000/docs`
 
 | Library | Purpose | Status |
 |---------|---------|--------|
-| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG : See. Search. Retrieve. | v0.4 |
+| [SightRAG](https://github.com/VK-Ant/sightrag) | Visual RAG : See. Search. Retrieve. Track. | v0.5 |
 | [adaptive-intelligence](https://pypi.org/project/adaptive-intelligence/) | RL-based RAG orchestration | v4.0 |
 | [llmevalkit](https://pypi.org/project/llmevalkit/) | LLM evaluation (78+ metrics) | Stable |
 
@@ -410,7 +561,8 @@ API at `http://localhost:8000/docs`
 | v0.1 | Core pipeline : image, video, camera, REST API |
 | v0.2 | Speed : C++ core, auto backends, pluggable models, rag.show() |
 | v0.4 | Intelligence : Grounding DINO, Person Re-ID, CLI, Qdrant, re-ranking |
-| v0.4 (current) | Understanding : OCR reads text, multimodal LLM, hybrid search |
+| v0.4 | Understanding : OCR reads text, multimodal LLM, hybrid search |
+| v0.5 (current) | Tracking : segmentation, object tracking, find+track, timeline |
 | v1.0 | Production : edge deployment, compliance, enterprise |
 
 ## License
